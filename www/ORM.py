@@ -41,8 +41,33 @@ def select(sql, args, size=None):
             rs = yield from cur.fetchmany(size)
         else:
             rs = yield from cur.fetchall()
+        cur.close()
+        conn.close()
         logging.info('rows returned: %s' % len(rs))
         return rs
+
+@asyncio.coroutine
+def execute(sql,args,autocommit = True):
+    log(sql,args)
+    global __pool
+    with (yield from __pool) as conn:
+        if not autocommit:
+            yield from conn.begin()
+        try:
+            cur = yield from conn.cursor()
+            yield from cur.execute(sql.replace('?', '%s'), args or ())
+            affected = cur.rowcount
+            yield from cur.close()
+            if not autocommit:
+                yield from conn.commit()
+        except BaseException as e:
+            if not autocommit:
+                yield from conn.rollback
+            raise
+        conn.close()
+        return affected
+
+
 
 #定义字段类型
 class Field(object):
@@ -92,26 +117,30 @@ class ModelMetaclass(type):
         mappings = {}
         fields = []
         primaryKey = []
-        for k,v in attrs.items():
-            if(isinstance(v,Field)):
+        for k, v in attrs.items():
+            if isinstance(v, Field):
                 mappings[k] = v
-                if(v.column_pk):
+                if v.column_pk:
                     primaryKey.append(k)
                 fields.append(k)
         if len(primaryKey) == 0:
             raise RuntimeError('Primary kay not found.')
         escaped_fields = list(map(lambda f: '`%s`' % f, fields))
-        escape_keys = list(map(lambda f: '`%s`' % f, primaryKey))
         for k in mappings.keys():
             attrs.pop(k)
         #属性和列的映射关系
         attrs['__mappings__'] = mappings
+        attrs['__fields__'] = fields
+        attrs['__primaryKey__'] = primaryKey
         attrs['__tablename__'] = tableName
         attrs['__select__'] = 'select %s from %s'% (','.join(escaped_fields), tableName)
-        attrs['__update__'] = ''
-        attrs['__delete__'] = ''
+        attrs['__update__'] = 'update %s set %s where %s'%(tableName, ','.join(create_args_strings(fields)), 'and'.join(create_args_strings(primaryKey)))
+        attrs['__delete__'] = 'delete from %s where %s' % (tableName, 'and'.join(create_args_strings(primaryKey)))
         attrs['__insert__'] = 'insert into %s (%s) values (%s)' % (tableName, ', '.join(escaped_fields), create_args_string(len(escaped_fields)))
         return type.__new__(cls, name, bases, attrs)
+
+def create_args_strings(lists):
+    return list(map(lambda item:'`%s` = ?' % item, lists))
 
 
 def create_args_string(number):
@@ -135,13 +164,13 @@ class Model(dict, metaclass=ModelMetaclass):
         self[key] = value
 
     def getValue(self,key):
-        return  getattr(self,key,None)
+        return getattr(self,key,None)
 
 
     def getValueOrDefault(self, key):
         value = getattr(self,key,None)
         if value is None:
-            field = self.__mapping__[key]
+            field = self.__mappings__[key]
             if field.column_default is not None:
                 value = field.column_default() if callable(field.column_default) else field.column_default
                 logging.debug('using default value for %s:%s' % (key , str(value)))
@@ -184,9 +213,35 @@ class Model(dict, metaclass=ModelMetaclass):
         sqlStr = cls.__select__ + ' where '
         for k,v in pk.items():
             sqlStr += " `%s` = '%s' " % (k,v)
-        rs = yield from select(sqlStr)
+        rs = yield from select(sqlStr,pk)
         if len(rs) == 0:
             return None
         return [cls(**r) for r in rs]
 
 
+    @asyncio.coroutine
+    def save(self):
+        args = list(map(self.getValueOrDefault, self.__fields__))
+        # sqlstr = self.__insert__.replace('?', '%s')
+        row = yield from execute(self.__insert__, args)
+        if row != 1:
+            return False
+        return True
+
+    @asyncio.coroutine
+    def update(self):
+        args = list(map(self.getValueOrDefault, self.__fields__))
+        for pk in self.__primaryKey__:
+            args.append(self.getValue(pk))
+        row = yield from execute(self.__update__, args)
+        if row != 1:
+            return False
+        return True
+
+    @asyncio.coroutine
+    def delete(self):
+        args = list(map(self.getValueOrDefault, self.__primaryKey__))
+        row = yield from execute(self.__delete__, args)
+        if row != 1:
+            return False
+        return True
