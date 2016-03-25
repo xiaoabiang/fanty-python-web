@@ -98,8 +98,8 @@ class RequestHandler(object):
                     return web.HTTPBadRequest('Messing Content-Type.')
                 ct = request.content_type.lower()
                 if ct.startswith('application/json'):
-                    params = yield  from request.json()
-                    if not isinstance(params,dict):
+                    params = yield from request.json()
+                    if not isinstance(params, dict):
                         return web.HTTPBadRequest('JSON body must be object.')
                     kw = params
                 elif ct.startswith('application/x-www-form-urlencoded') or ct.startswith('multipart/form-data'):
@@ -158,6 +158,7 @@ def add_route(app, fn):
         fn = asyncio.coroutine(fn)
     logging.info('add route %s %s => %s(%s)' % (method, path, fn.__name__, ','.join(inspect.signature(fn).parameters.keys())))
     app.router.add_route(method, path, RequestHandler(app, fn))
+    # app.router.add_route(method, path, fn)
 
 
 def add_routes(app, module_name):
