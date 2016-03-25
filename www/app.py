@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
+from www.coroweb import add_routes
+
 __author__ = 'Administrator'
 
 import logging
 import  asyncio,os,json,time
-from datetime import  datetime
+from datetime import datetime
 from aiohttp import web
-import orm
-import config
+import www.orm
+import www.config
+import www.handlers
 
 # 一个记录URL日志的logger
 @asyncio.coroutine
@@ -95,19 +98,13 @@ def datetime_filter(t):
     return u'%年%月%日' % (dt.year, dt.month, dt.day)
 
 
-
-
-def index(request):
-    return web.Response(body = b'<h1>Fanty</h1>')
-
-
-
 @asyncio.coroutine
 def init(loop):
-    yield from orm.create_pool(loop=loop, host=configs['db']['host'], port=configs['db']['port'],
+    yield from www.orm.create_pool(loop=loop, host=configs['db']['host'], port=configs['db']['port'],
                                user=configs['db']['username'], password=configs['db']['password'], db=configs['db']['database'])
     app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
-    app.router.add_route('GET', '/', index)
+    add_routes(app, 'handlers')
+    # app.router.add_route('GET', '/', www.handlers.index)
     srv = yield from loop.create_server(app.make_handler(), '127.0.0.1', 9000)
     logging.info('server started at http://127.0.0.1:9000....')
     return srv
@@ -115,7 +112,7 @@ def init(loop):
 
 if __name__ == '__main__':
     global configs
-    configs = config.configs
+    configs = www.config.configs
     loop = asyncio.get_event_loop()
     loop.run_until_complete(init(loop))
     loop.run_forever()
