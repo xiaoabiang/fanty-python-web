@@ -47,8 +47,8 @@ def select(sql, args, size=None):
         return rs
 
 @asyncio.coroutine
-def execute(sql,args,autocommit = True):
-    log(sql,args)
+def execute(sql, args, autocommit=True):
+    log(sql, args)
     global __pool
     with (yield from __pool) as conn:
         if not autocommit:
@@ -72,7 +72,7 @@ def execute(sql,args,autocommit = True):
 #定义字段类型
 class Field(object):
     #字段名，字段类型，是否主键，默认值
-    def __init__(self,column_name,column_type,column_pk,column_default):
+    def __init__(self, column_name, column_type, column_pk, column_default):
         self.column_name = column_name
         self.column_type = column_type
         self.column_pk = column_pk
@@ -80,11 +80,11 @@ class Field(object):
 
     #返回字段类型和字段名
     def __str__(self):
-        return ( '<%s - %s：%s>' % (self.__class__.__name__, self.name, self.column_type))
+        return '<%s - %s：%s>' % (self.__class__.__name__, self.name, self.column_type)
 
 #整数类型
 class IntegerField(Field):
-    def __init__(self,column_name = None,column_type = 'int', column_pk = False,column_default = 0):
+    def __init__(self, column_name=None, column_type='int', column_pk=False, column_default=0):
         super().__init__(column_name, column_type, column_pk, column_default)
 
 #字符串类型

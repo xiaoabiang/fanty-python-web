@@ -1,25 +1,27 @@
 # -*- coding: utf-8 -*-
+import os
 from www.coroweb import add_routes
 
 __author__ = 'Administrator'
 
 import logging
-import  asyncio,os,json,time
+import asyncio, json, time
 from datetime import datetime
 from aiohttp import web
 import www.orm
 import www.config
 import www.handlers
+import jinja2
 
 # 一个记录URL日志的logger
 @asyncio.coroutine
-def logger_factory(app,handler):
+def logger_factory(app, handler):
     @asyncio.coroutine
     def logger(request):
         # 记录日志
-        logging.info('Request:%s %s' % (request.method,request.path))
+        logging.info('Request:%s %s' % (request.method, request.path))
         # 继续处理请求
-        return(yield from handler(request))
+        return (yield from handler(request))
     return logger
 
 
@@ -44,7 +46,7 @@ def data_factory(app,handler):
 
 #返回的处理
 @asyncio.coroutine
-def response_factory(app,handler):
+def response_factory(app, handler):
     @asyncio.coroutine
     def response(request):
         logging.info('Response handler...')
@@ -58,13 +60,13 @@ def response_factory(app,handler):
         if isinstance(r, str):
             if r.startswith('redirect'):
                 return web.HTTPFound(r[9:])
-            resp = web.Response(body= r.encode('utf-8'))
+            resp = web.Response(body=r.encode('utf-8'))
             resp.content_type = 'txt/html;charset = utf-8'
             return resp
         if isinstance(r, dict):
             template = r.get('__template__')
             if template is None:
-                resp = web.Response(body=json.dumps(r,ensure_ascii=False,default=lambda o:o.__dict__).encode('utf-8'))
+                resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
@@ -84,6 +86,28 @@ def response_factory(app,handler):
     return response
 
 
+def init_jinja2(app, **kw):
+    logging.info('init jinja2...')
+    options = dict(
+        autoescape=kw.get('autoescape', True),
+        block_start_string=kw.get('block_start_string','{%'),
+        block_end_string=kw.get('block_end_string', '%}'),
+        variable_start_string=kw.get('variable_start_string', '{{'),
+        variable_end_string=kw.get('variable_end_string', '}}'),
+        auto_reload=kw.get('auto_reload', True)
+    )
+    path = kw.get('path', None)
+    if path is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'templates')
+    logging.info('set jinja2 template path:%s' % path)
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(path), **options)
+    filters = kw.get('filters', None)
+    if filters is not None:
+        for name, f in filters.items():
+            env.filters[name] = f
+    app['__templating__'] = env
+
+
 def datetime_filter(t):
     delta = int(time.time() - t)
     if delta < 60:
@@ -100,11 +124,10 @@ def datetime_filter(t):
 
 @asyncio.coroutine
 def init(loop):
-    yield from www.orm.create_pool(loop=loop, host=configs['db']['host'], port=configs['db']['port'],
-                               user=configs['db']['username'], password=configs['db']['password'], db=configs['db']['database'])
+    yield from www.orm.create_pool(loop=loop, host=configs['db']['host'], port=configs['db']['port'], user=configs['db']['username'], password=configs['db']['password'], db=configs['db']['database'])
     app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
+    init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
-    # app.router.add_route('GET', '/', www.handlers.index)
     srv = yield from loop.create_server(app.make_handler(), '127.0.0.1', 9000)
     logging.info('server started at http://127.0.0.1:9000....')
     return srv

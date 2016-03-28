@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 __author__ = 'Administrator'
 
-import orm
-import models
+import www.orm
+import www.models
 import asyncio
 import sys
 # class User(Model):
@@ -25,12 +25,10 @@ import sys
 #             print(test)
 
 def test(loop):
-    yield from orm.create_pool(loop=loop, user='xiaoabiang', password='xiaoabiang', db='awesome')
-    users = yield from models.User.findAll()
+    yield from www.orm.create_pool(loop=loop, host='127.0.0.1', user='xiaoabiang', password='xiaoabiang', db='awesome')
+    users = yield from www.models.User.findAll()
     for user in users:
-        if user.email == 'test@163.com':
-            user.email = 'test1@163.com'
-            yield from user.update()
+        print(user)
     # user = models.User(name = 'fanty',passwd = 'xiaoabiang',email = 'iiiaaa@163.com')
     # bool = yield from user.save()
     # if bool:

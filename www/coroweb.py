@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 from aiohttp import web
+from www.apis import APIError
 
 __author__ = 'Administrator'
 
@@ -43,6 +44,7 @@ def has_request_arg(fn):
             continue
         if found and (param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.KEYWORD_ONLY and param.kind != inspect.Parameter.VAR_KEYWORD):
             raise ValueError('request parameter must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
+    return found
 
 
 def has_var_kw_arg(fn):
@@ -50,7 +52,6 @@ def has_var_kw_arg(fn):
     for name, param in params.items():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
             return True
-    return False
 
 
 def has_named_kw_args(fn):
@@ -58,7 +59,6 @@ def has_named_kw_args(fn):
     for name, param in params.items():
         if param.kind == inspect.Parameter.KEYWORD_ONLY:
             return True
-    return False
 
 def get_named_kw_args(fn):
     args = []
@@ -111,7 +111,7 @@ class RequestHandler(object):
                 qs = request.query_string
                 if qs:
                     kw = dict()
-                    for k,v in parse.parse_qs(qs,True).items():
+                    for k, v in parse.parse_qs(qs, True).items():
                         kw[k] = v[0]
         if kw is None:
             kw = dict(**request.match_info)
@@ -137,10 +137,10 @@ class RequestHandler(object):
         try:
             r = yield from self._func(**kw)
             return r
-        # except APIError as e：
-        #     return dict(error=e.error,data=e.data, message=e.message)
-        except:
-            return None
+        except APIError as e:
+            return dict(error=e.error, data=e.data, message=e.message)
+
+
 
 
 def add_static(app):
@@ -173,8 +173,8 @@ def add_routes(app, module_name):
             continue
         fn = getattr(mod, attr)
         if callable(fn):
-            method = getattr(fn, '__method__',None)
-            path = getattr(fn, '__route__',None)
+            method = getattr(fn, '__method__', None)
+            path = getattr(fn, '__route__', None)
             if method and path:
                 add_route(app, fn)
 

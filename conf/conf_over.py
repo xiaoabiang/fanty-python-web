@@ -5,6 +5,6 @@ __author__ = 'Administrator'
 configs = {
     'debug': False,
     'db': {
-        'host': '192.168.9.1'
+        'host': '127.0.0.1'
     }
 }

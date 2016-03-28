@@ -2,7 +2,7 @@
 __author__ = 'Administrator'
 
 import time, uuid
-from orm import Model,StringField,BooleanField,TextField,FloatField
+from www.orm import Model, StringField, BooleanField, TextField, FloatField
 
 
 def next_id():
