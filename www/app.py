@@ -113,13 +113,13 @@ def datetime_filter(t):
     if delta < 60:
         return u'1分钟前'
     if delta < 3600:
-        return u'%分钟前' % (delta//60)
+        return u'%s分钟前' % (delta//60)
     if delta < 86400:
-        return u'%小时前' % (delta//3600)
+        return u'%s小时前' % (delta//3600)
     if delta < 604800:
-        return u'%天前' % (delta//86400)
+        return u'%s天前' % (delta//86400)
     dt = datetime.fromtimestamp(t)
-    return u'%年%月%日' % (dt.year, dt.month, dt.day)
+    return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
 
 @asyncio.coroutine
